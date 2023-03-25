@@ -12,6 +12,8 @@ from nltk.corpus import stopwords
 nltk.download('stopwords')
 nltk.download('words')
 from nltk.corpus import words
+from nltk.tokenize import MWETokenizer
+from wildcard import wildcardProcessing
  
 start_time = time.time()
 # Text file the query
@@ -29,15 +31,15 @@ for word in read:
  
  
 #list to store each line as an element of list
-array = []
-for i in range(line):
-	array.append(file.readline())
+# array = []
+# for i in range(line):
+# 	array.append(file.readline())
  
 # print(array)
  
 
 # Taking care of Punctuations
-punc = '''!()-[]{};:'"\, <>./?@#$%^&*_~'''
+punc = '''!()-[]{};:'"\, <>./?@#$%^&_~'''
 for ele in read:
 	if ele in punc:
 		read = read.replace(ele, " ")
@@ -48,13 +50,32 @@ for ele in read:
 read=read.lower()				
 # print(read)
 
+# print(read)
 
+# tokenizer = MWETokenizer([('*')])
+# # Tokenization 
+# for i in range(1):
+# 	# this will convert
+# 	# the word into tokens
+# 	text_tokens = tokenizer.tokenize(word_tokenize(read))
 
-# Tokenization 
-for i in range(1):
-	# this will convert
-	# the word into tokens
-	text_tokens = word_tokenize(read)
+# print(text_tokens)
+
+text_tokens = read.split(' ')
+
+# Wildcard characters
+
+wildcards = []
+
+# Checking for permute term
+for tok in text_tokens:
+	if '*' in tok:
+		wildcards.extend(wildcardProcessing(tok))
+		text_tokens.remove(tok)
+
+# for wc in wildcards:
+#     if wc not in text_tokens:
+#         text_tokens.append(wc)
 
 
 # Spell Correction
@@ -62,11 +83,17 @@ correct_words = words.words()
 
 correct_tokens = []
 
+changed_words = {}
+
 for word in text_tokens:
     temp = [(jaccard_distance(set(ngrams(word, 2)),
                               set(ngrams(w, 2))),w)
             for w in correct_words if w[0]==word[0]]
-    correct_tokens.append(sorted(temp, key = lambda val:val[0])[0][1])
+    correct_word = sorted(temp, key = lambda val:val[0])[0][1]
+    correct_tokens.append(correct_word)
+    if(word != correct_word):
+    	changed_words[word] = correct_word
+    
 
 # Taking care of stop words
 
@@ -99,20 +126,21 @@ tokens_final = tokens_without_sw
 
 # Dictionary for storing the line numbers of tokens (Inverted Tavle Index)
  
-dict = {}
+# dict = {}
  
-for i in range(line):
-	check = array[i].lower()
-	for item in tokens_final:
+# for i in range(line):
+# 	check = array[i].lower()
+# 	for item in tokens_final:
  
-		if item in check:
-			if item not in dict:
-				dict[item] = []
+# 		if item in check:
+# 			if item not in dict:
+# 				dict[item] = []
  
-			if item in dict:
-				if ((i+1) not in dict[item]):
-				    dict[item].append(i+1)
-				
+# 			if item in dict:
+# 				if ((i+1) not in dict[item]):
+# 				    dict[item].append(i+1)
+
+# print(dict)			
  
 # file1 = open('dict.txt','w')
 # for tok in dict:
@@ -155,7 +183,6 @@ f.close()
 # print(end)
 # print(data)
 
-search = {}
 
 # Function to find paragraph containing all tokens
 # def common_numbers(d):
@@ -183,34 +210,52 @@ def check_doc(line_no):
 		if line_no>=doc[d][0] and line_no<=doc[d][1]:
 			return d
 
+list_tokens = []
 
+# Wild Card handling
+for wc in wildcards:
+    temp = []
+    temp.extend(tokens_final)
+    temp.append(wc)
+    list_tokens.append(temp)
+
+tot_search = []
 # Searching the line for the search token keywords
-for item in dict:
-	if item in data:
-		for idx in data[item]:
-			for i in range(len(start)):
-				if(idx>=start[i] and idx<=end[i]):
-					if item in search:
-						search[item].append((start[i], end[i]))
-					else:
-						search[item] = [(start[i], end[i])]
-					# print(item + "  :  " + str(start[i]) + " -> " + str(end[i]))
+for lis in list_tokens:
+	search = {}
+	
+	for item in lis:
+		if item in data:
+			for idx in data[item]:
+				for i in range(len(start)):
+					if(idx>=start[i] and idx<=end[i]):
+						if item in search:
+							search[item].append((start[i], end[i]))
+						else:
+							search[item] = [(start[i], end[i])]
+						# print(item + "  :  " + str(start[i]) + " -> " + str(end[i]))
+		if(search):
+			tot_search.append(search)
 
 	
 # print(search)
 
+tot_common_list =[]
 flag = 0
-
-if len(search)!=0:
-	common_list = common_para(search)
-	flag = 1
+for search in tot_search:
+	if len(search)!=0:
+		common_list = common_para(search)
+		flag = 1
+		if(len(common_list)!=0):
+			tot_common_list.extend(common_list)
+			
 
 print('\n\n')
 
 res_count = 1
 
 if flag:
-	for lis in common_list:
+	for lis in tot_common_list:
 		with open(r"final-final.txt", errors="ignore") as fp:
 			x = fp.readlines()[lis[0]:lis[1]]
 			if(lis[0] == lis[1]) :
@@ -232,6 +277,14 @@ end_time = time.time()
 
 print("Time Taken : " + str(end_time-start_time))
 
+print("\nTokens :")
 print(tokens_final)
+print("\nWildcards :")
+print(wildcards)
 # print(search)
 # print(common_list)
+
+if(len(changed_words) != 0):
+    print("\nDid You Mean?")
+    for key in changed_words:
+        print(key + "  ->  " + changed_words[key])
