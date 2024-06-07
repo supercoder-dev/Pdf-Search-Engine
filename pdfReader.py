@@ -1,8 +1,8 @@
-import PyPDF2
+import PyPDF2 as pypdf
 import json
 
 pdffileobj = open('AU127-1.pdf', 'rb')
-pdfreader = PyPDF2.PdfFileReader(pdffileobj)
+pdfreader = pypdf.PdfFileReader(pdffileobj)
 x = pdfreader.numPages
 
 text = ""
